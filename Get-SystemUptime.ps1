@@ -1,5 +1,5 @@
 function Get-SystemUptime {
-    $OS = Get-CimInstance Win32_OperatingSystem
+    $OS = Get-CimInstance -ClassName Win32_OperatingSystem -Property LastBootUpTime
     $UpTime = (Get-Date) - $OS.LastBootUpTime
 
     [PSCustomObject]@{
