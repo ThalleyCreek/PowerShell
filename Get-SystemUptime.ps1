@@ -1,44 +1,50 @@
+function Get-SystemUptime {
 <#
 .SYNOPSIS
-Gets the time elapsed since the last system boot.
+    Returns system uptime and last boot time.
 
 .DESCRIPTION
-Retrieves the operating system's last boot time and calculates the days,
-hours, and minutes the system has been running.
+    Calculates days, hours, and minutes since the last system boot.
 
 .EXAMPLE
-PS> Get-SystemUptime
-Returns an object showing the current system uptime and last boot time.
+    PS> Get-SystemUptime
 
 .OUTPUTS
-PSCustomObject. Returns an object with Days, Hours, Minutes, and Since properties.
+    PSCustomObject: Days, Hours, Minutes, LastBootUpTime
 #>
-function Get-SystemUptime {
-
-    <#
-    .SYNOPSIS
-        Returns system uptime information including the last boot time.
-
-    .EXAMPLE
-        PS> Get-SystemUptime
-
-        Days Hours Minutes LastBootUpTime
-        ---- ----- ------- --------------
-        5    3     20      10/19/2023 08:42:00
-    #>
-
     [CmdletBinding()]
     param(
         [string[]]$ComputerName,
         [Microsoft.Management.Infrastructure.CimSession[]]$CimSession
     )
 
-    $OS = Get-CimInstance Win32_OperatingSystem
-    $UpTime = (Get-Date) - $OS.LastBootUpTime
-    [PSCustomObject]@{
-        Days    = $UpTime.Days
-        Hours   = $UpTime.Hours
-        Minutes = $UpTime.Minutes
-        LastBootUpTime = $OS.LastBootUpTime
+    $cimParams = @{}
+    if ($PSBoundParameters.ContainsKey('ComputerName')) { $cimParams['ComputerName'] = $ComputerName }
+    if ($PSBoundParameters.ContainsKey('CimSession'))   { $cimParams['CimSession'] = $CimSession }
+
+    try {
+        $osInstances = Get-CimInstance @cimParams -ClassName Win32_OperatingSystem -ErrorAction Stop
+    } catch {
+        Write-Error "Failed to retrieve operating system information: $_"
+        return
+    }
+
+    if (-not $osInstances) {
+        Write-Error "No operating system instances found."
+        return
+    }
+
+    foreach ($os in $osInstances) {
+        if (-not $os.LastBootUpTime) {
+            Write-Error "LastBootUpTime property not found for $($os.PSComputerName)."
+            continue
+        }
+        $uptime = (Get-Date) - $os.LastBootUpTime
+        [PSCustomObject]@{
+            Days           = $uptime.Days
+            Hours          = $uptime.Hours
+            Minutes        = $uptime.Minutes
+            LastBootUpTime = $os.LastBootUpTime
+        }
     }
 }
